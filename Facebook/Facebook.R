@@ -21,90 +21,6 @@ samplesub = read.csv("sampleSubmission.csv")
 trainbids <- merge(train, bids, by="bidder_id")
 testbids <- merge(test, bids, by="bidder_id")
 
-#spliting dataset
-set.seed(123)
-inTrain <- createDataPartition(urltrainnew$outcome, p=0.7, list=F, times=1)
-modeltrain <- urltrainnew[inTrain,]
-cv <- urltrainnew[-inTrain,]
-
-#First ROC look
-fit <- glm(outcome ~ merchandise+ipFreq+urlFreq+countrydiff+devdiff+aucFreq, data=modeltrain, family=binomial())
-prob=predict(fit, type=c("response"), cv)
-cv$prob = prob
-library(pROC)
-ROC <- roc(outcome==1 ~ prob, data= cv)
-plot(ROC)
-confusion <- table(prob>.5, cv$outcome)
-errorrate <- sum(diag(confusion))/sum(confusion)
-errorrate
-
-#auction duraction
-trainbids %>% group_by(auction) %>% summ
-
-#feature based on bidder_ids that use multiple devices, bidder_ids that access from multiple countries, etc
-countus <- trainbids %>% group_by(bidder_id) %>% filter(country == "us")
-
-summary(countus)
-countus.f <- factor(countus)
-
-trainbids$factor_country_1 <- factor(with(trainbids, ifelse((country == "us"),1 ,0)))
-trainbids$factor_county_1
-
-#time feature eng
-timsor <- urltrain %>% filter(outcome == 1) %>% group_by(time) %>% count(time)
-timnil <- urltrain %>% filter(outcome == 0) %>% group_by(time) %>% count(time)
-timtot <- join(timsor, timnil, type="inner", by="time")
-names(timtot)[2] = "posfreq"
-names(timtot)[3] = "negfreq"
-timtot$timdiff = timtot$posfreq/timtot$negfreq
-
-urltrainnew <- join(urltrainnew, timtot, type="left", by="time")
-urltrainnew$timdif[is.na(urltrainnew$timdif)] <- 0
-
-#country feature engineering
-countsor <- urltrain %>% filter(outcome == 1) %>% group_by(country) %>% count(country)
-class(countsor)
-summary(countsor)
-countsor
-
-countnil <- urltrain %>% filter(outcome == 0) %>% group_by(country) %>% count(country)
-summary(countnil)
-countnil
-
-countot <- join(countsor, countnil, type="inner", by="country")
-names(countot)[2] = "posfreq"
-names(countot)[3] = "negfreq"
-countot$diff = countot$posfreq/countot$negfreq
-
-urltrainnew <- join(urltrain, countot, type="left", by="country")
-
-names(urltrainnew)[18] <- "countrydiff"
-urltrainnew$countrydiff[is.na(urltrainnew$countrydiff)] <- 0
-
-counttestot <- join(countsortest, countniltest, type="inner", by="country")
-names(counttestot)[2] = "posfreq"
-names(counttestot)[3] = "negfreq"
-counttestot = counttestot$posfreq/counttestot$negfreq
-
-urltestnew <- join(urltest, countot, type="left", by="country")
-names(urltestnew)[16] <- "countrydiff"
-urltestnew$countrydiff[is.na(urltestnew$countrydiff)] <- 0
-
-#device feature eng
-countdev <- urltrain %>% filter(outcome == 1) %>% group_by(device) %>% count(device)
-
-countdevnil <- urltrain %>% filter(outcome == 0) %>% group_by(device) %>% count(device)
-
-countdevtot <- join(countdev, countdevnil, type="inner", by="device")
-names(countdevtot)[2] = "pdevfreq"
-names(countdevtot)[3] = "ndevfreq"
-countdevtot$devdiff = countdevtot$pdevfreq/countdevtot$ndevfreq
-
-urltrainnew <- join(urltrainnew, countdevtot, type="left", by="device")
-
-urltestnew <- join(urltestnew, countdevtot, type="left", by="device")
-urltestnew$devdiff[is.na(urltestnew$devdiff)] <- 0
-
 #count url
 head(subset(trainbids, select="url"))
 factor(trainbids$url)
@@ -156,63 +72,72 @@ names(tip)[1] = "ip"
 urltest <- merge(urltest, tip, by="ip")
 names(urltest)[13] = "ipFreq"
 
-#ip is multiple ip
-yr = count(trainbids, "ip")
+#time feature eng
+timsor <- urltrain %>% filter(outcome == 1) %>% group_by(time) %>% count(time)
+timnil <- urltrain %>% filter(outcome == 0) %>% group_by(time) %>% count(time)
+timtot <- join(timsor, timnil, type="inner", by="time")
+names(timtot)[2] = "posfreq"
+names(timtot)[3] = "negfreq"
+timtot$timdiff = timtot$posfreq/timtot$negfreq
 
-trainbids %>% group_by(ip) %>% mutate(count.2= ifelse(VAR1==2, cumsum(VAR1==2), NA))
+urltrainnew <- join(urltrainnew, timtot, type="left", by="time")
+urltrainnew$timdif[is.na(urltrainnew$timdif)] <- 0
 
-#sorted data by frequeuncy of ip address
+#country feature engineering
+countsor <- urltrain %>% filter(outcome == 1) %>% group_by(country) %>% count(country)
 
-trainbids %>% group_by(ip)
+countnil <- urltrain %>% filter(outcome == 0) %>% group_by(country) %>% count(country)
 
-cid <- len(ip)
+countot <- join(countsor, countnil, type="inner", by="country")
+names(countot)[2] = "posfreq"
+names(countot)[3] = "negfreq"
+countot$diff = countot$posfreq/countot$negfreq
 
-table(trainbids$ip) %>%
-ovfif <- sort(table(trainbids$ip)[table(trainbids$ip) > 5000])
+urltrainnew <- join(urltrain, countot, type="left", by="country")
 
-which(table(trainbids$ip >= 50))
+names(urltrainnew)[18] <- "countrydiff"
+urltrainnew$countrydiff[is.na(urltrainnew$countrydiff)] <- 0
 
-freq <- ave(rep(1, times=nrow(trainbids)), trainbids$ip, FUN=sum)
-ipord <- trainbids[order(freq, trainbids$ip), ] 
-ipord1 <- trainbids[sort.list(freq), ] 
-ipord1[1:5,]
-summary(ipord)
-ipord[1:5,]
+counttestot <- join(countsortest, countniltest, type="inner", by="country")
+names(counttestot)[2] = "posfreq"
+names(counttestot)[3] = "negfreq"
+counttestot = counttestot$posfreq/counttestot$negfreq
 
-ipdf <- data.frame(trainbids$ip, trainbids$outcome)
-rforestzip <- randomForest(trainbids$outcome ~ trainbids$ip, data=ipdf, ntrees=1000, mtry=5, importance=TRUE, cvfolds=5)
+urltestnew <- join(urltest, countot, type="left", by="country")
+names(urltestnew)[16] <- "countrydiff"
+urltestnew$countrydiff[is.na(urltestnew$countrydiff)] <- 0
 
-for(ip in trainbids$ip){
-  if (count(ip) >= 2){
-    trainbids[paste("dummy", level, sep="_")] <- ifelse(trainbids$ip == level, 1, 0)
-}
-}
+#device feature eng
+countdev <- urltrain %>% filter(outcome == 1) %>% group_by(device) %>% count(device)
 
-for(ip in unique(trainbids$ip)){
-  if count(ip) >=2 & <50:
-}
-  
+countdevnil <- urltrain %>% filter(outcome == 0) %>% group_by(device) %>% count(device)
 
-  
-trainbids$highIP <- factor(with(trainbids, ifelse(())))
-highIP <- trainbids$ip
-hiIp <- (count(highIP > 50))
-multIP <- trainbids %>% count(ip) %>% filter(n >=2)
-multbi <- data.frame(trainbids$ip, bin=cut(trainbids$ip, multIP), include.lowest=TRUE)
-highIP <- trainbids %>% count(ip) %>% filter(n >= 50)
-suphighIP <- trainbids %>% count(ip) %>% filter(n >= 1000)
-suphighIP <- suphighIP$ip
-suphighIP <- as.character(suphighIP)
-SingIP <- trainbids %>% count(ip) %>% filter(n < 2)
-Sing <- SingIP$ip
+countdevtot <- join(countdev, countdevnil, type="inner", by="device")
+names(countdevtot)[2] = "pdevfreq"
+names(countdevtot)[3] = "ndevfreq"
+countdevtot$devdiff = countdevtot$pdevfreq/countdevtot$ndevfreq
 
-#auction
-trainbids$auction <- as.numeric(trainbids$auction)
+urltrainnew <- join(urltrainnew, countdevtot, type="left", by="device")
 
-combine.levels(trainbids$auction)
+urltestnew <- join(urltestnew, countdevtot, type="left", by="device")
+urltestnew$devdiff[is.na(urltestnew$devdiff)] <- 0
 
-aucdf <- data.frame(trainbids$auction, trainbids$outcome)
-kauction <- kmeans(aucdf, centers=10)
+#spliting dataset
+set.seed(123)
+inTrain <- createDataPartition(urltrainnew$outcome, p=0.7, list=F, times=1)
+modeltrain <- urltrainnew[inTrain,]
+cv <- urltrainnew[-inTrain,]
+
+#First ROC look
+fit <- glm(outcome ~ merchandise+ipFreq+urlFreq+countrydiff+devdiff+aucFreq, data=modeltrain, family=binomial())
+prob=predict(fit, type=c("response"), cv)
+cv$prob = prob
+library(pROC)
+ROC <- roc(outcome==1 ~ prob, data= cv)
+plot(ROC)
+confusion <- table(prob>.5, cv$outcome)
+errorrate <- sum(diag(confusion))/sum(confusion)
+errorrate
 
 #logreg
 fblogit <- glm(outcome ~ merchandise+ipFreq+urlFreq+countrydiff+devdiff, data=urltrainnew, family=binomial())
@@ -249,9 +174,7 @@ predRforest <- predict(Rforest, urltest, ntrees=500)
 Boost <- gbm(outcome ~ merchandise+ipFreq+urlFreq+countrydiff+devdiff, data=urltrainnew, interaction.depth=5, shrinkage=.1, n.trees=500, verbose=TRUE)
 
 #predict Boost
-
 predBoost <- predict(Boost, urltestnew, type=c("response"), n.trees=500)
-
 pboost <- data.frame(bidder_id = urltest$bidder_id, prediction=predBoost)
 p_bid <- pboost %>% group_by(bidder_id)
 lasnum <- summarise(p_bid, mean(prediction))
@@ -262,6 +185,7 @@ submissionre$pred[is.na(submissionre$pred)] <- 0
 submissionre$prediction <- submissionre$pred
 submissionre$pred <- NULL
 
+#ROC
 ROC <- roc(outcome==1 ~ prob, data= urltest)
 plot(ROC)
 confusion <- table(prob>.5, cv$outcome)
@@ -269,7 +193,6 @@ errorrate <- sum(diag(confusion))/sum(confusion)
 errorrate
 
 #submit function
-
 boostsubmit <- data.frame(bidder_id = samplesub$bidder_id, prediction=predBoost)
 
 #write csv
