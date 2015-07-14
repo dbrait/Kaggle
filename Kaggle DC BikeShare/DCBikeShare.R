@@ -2,17 +2,6 @@ train = read.csv("train.csv")
 test = read.csv("test.csv")
 sampleSubmission = read.csv("sampleSubmission.csv")
 
-#Exploratory
-summary(train)
-str(train)
-edit(train)
-
-
-str(test)
-
-library(ggplot2)
-
-
 #PreProcessing
 train$workingday = as.factor(train$workingday)
 test$workingday = as.factor(test$workingday)
@@ -63,7 +52,6 @@ test$year <- as.factor(test$datetime$year + 1900)
 test$sunday <- as.factor(test$day == 0)
 
 #features
-
 features = ['datetime', 'season', 'holiday', 'workingday', 'weather',
             'temp', 'atemp', 'humidity', 'windspeed']
 
@@ -76,22 +64,26 @@ Tree.Pred = predict(DC.Tree,newdata=test)
 
 #filter train data
 library(dplyr)
-castrain <- train %>% select(season, weather, atemp, humidity, day, hour, year, sunday, workday, nonworkday, casual)
-regtrain <- train %>% select(season, weather, atemp, humidity, day, hour, year, sunday, workday, nonworkday, registered)
-counttrain <- train %>% select(season, weather, atemp, humidity, day, hour, year, sunday, workday, nonworkday, count)
+castrain <- train %>% select(season, weather, atemp, humidity, day, hour, year, 
+                             sunday, workday, nonworkday, casual)
+regtrain <- train %>% select(season, weather, atemp, humidity, day, hour, year, 
+                             sunday, workday, nonworkday, registered)
+counttrain <- train %>% select(season, weather, atemp, humidity, day, hour, year, 
+                               sunday, workday, nonworkday, count)
 
-counttest <- test %>% select(season, weather, atemp, humidity, day, hour, year, sunday, workday, nonworkday, count)
-#Regression
+counttest <- test %>% select(season, weather, atemp, humidity, day, hour, 
+                             year, sunday, workday, nonworkday, count)
 
 #Random Forest
 library(randomForest)
 library(party)
 library(miscTools)
-Casual.RForest = randomForest(casual~weather+season+atemp+holiday+humidity+hour+year+workday+sunday+nonworkday+day, data=train, ntrees=1000, mtry=5, importance=TRUE, cvfolds=5, verbose=TRUE)
-Casual.RForest
-Registered.RForest = randomForest(registered~season+weather+atemp+holiday+humidity+day+hour+year+workday+sunday+nonworkday,data=train,ntrees=1000, mtry=5, importance=TRUE, cvfolds=5)
-Registered.RForest
-
+Casual.RForest = randomForest(casual~weather+season+atemp+holiday+humidity+hour+year+workday+
+                                sunday+nonworkday+day, data=train, ntrees=1000, mtry=5, importance=TRUE, 
+                              cvfolds=5, verbose=TRUE)
+Registered.RForest = randomForest(registered~season+weather+atemp+holiday+humidity+day+hour+
+                                    year+workday+sunday+nonworkday,data=train,
+                                  ntrees=1000, mtry=5, importance=TRUE, cvfolds=5)
 
 test$casual <- predict(Casual.RForest, test)
 test$casual <- exp((test$casual)-1)
@@ -101,38 +93,35 @@ test$count <- abs(test$casual + test$registered)
 test$count <- round(test$count, 0)
 summary(test$count)
 
-DC.RForest = randomForest(count~season+weather+atemp+humidity+day+hour+year+workday+sunday+nonworkday,data=train,ntrees=5000, cvfolds=10)
+DC.RForest = randomForest(count~season+weather+atemp+humidity+day+hour+year+workday+sunday+
+                            nonworkday,data=train,ntrees=5000, cvfolds=10)
 print(DC.RForest)
 importance(DC.RForest)
 RForest.Pred = predict(DC.RForest,newdata=test,ntrees=5000)
-summary(RForest.Pred)
 
 RForest.Submit = data.frame(datetime = sampleSubmission$datetime, count = test$count)
-summary(RForest.Submit)
 
 r2 <- rSquared(test$count, test$count - predict(DC.Rforest, test))
 mse <- mean((test$count - RForest.Pred)^2)
-mse
+
 
 #Boosting
 library(gbm)
-DC.Boost = gbm(count~season+weather+atemp+humidity+day+hour+year+sunday+workday+nonworkday,data=train,n.trees=5000,interaction.depth=15, shrinkage=0.1)
-DC.Boost
-summary(DC.Boost)
+DC.Boost = gbm(count~season+weather+atemp+humidity+day+hour+year+sunday+
+                 workday+nonworkday,data=train,n.trees=5000,interaction.depth=15, shrinkage=0.1)
 Boost.Pred = predict(DC.Boost, newdata=test, n.trees=5000)
 
-Casual.Boost = gbm(casual~.,data=castrain,n.trees=5000,interaction.depth=15, shrinkage=0.1, cv.fold=5, bag.fraction=.5, train.fraction=.5, verbose=TRUE)
-Registered.Boost = gbm(registered~season+.,data=regtrain,n.trees=5000,interaction.depth=15, shrinkage=0.1, cv.fold=5, bag.fraction=.5, train.fraction=.5, verbose=TRUE)
+Casual.Boost = gbm(casual~.,data=castrain,n.trees=5000,interaction.depth=15, 
+                   shrinkage=0.1, cv.fold=5, bag.fraction=.5, train.fraction=.5, verbose=TRUE)
+Registered.Boost = gbm(registered~season+.,data=regtrain,n.trees=5000,interaction.depth=15, 
+                       shrinkage=0.1, cv.fold=5, bag.fraction=.5, train.fraction=.5, verbose=TRUE)
 
 test$casual = predict(Casual.Boost, test, n.trees=5000)
 test$registered = predict(Registered.Boost, test, n.trees=5000)
 test$count = abs(test$casual + test$registered)
 test$count = round(test$count, 0)
-summary(test$count)
 
 Boost.Submit = data.frame(datetime = sampleSubmission$datetime, count = test$count)
-summary(Boost.Submit)
-
 
 pcount <- predict(gbmfit1, counttest)
 
@@ -151,16 +140,13 @@ fitControl <- trainControl(method="repeatedcv", number=5, repeats=5)
 
 gbmGrid <- expand.grid(interaction.depth=3,n.trees=100,shrinkage=0.1)
 
-gbmfit1 <- train(count ~ ., data=counttrain, method="gbm", trControl=fitControl, verbose=FALSE, tuneGrid=gbmGrid, metric="RMSLE")
-gbmfit1
-summary(gbmfit1)
+gbmfit1 <- train(count ~ ., data=counttrain, method="gbm", trControl=fitControl, 
+                 verbose=FALSE, tuneGrid=gbmGrid, metric="RMSLE")
 tcount <- predict(gbmfit1, counttrain)
 
 #Root mean sqaured log error
 library(Metrics)
 rmsle(counttrain, tcount)
-
-#Ensemble Learning
 
 #Write Files
 write.csv(Boost.Submit, "Boost.Pred.csv", row.names=FALSE)
