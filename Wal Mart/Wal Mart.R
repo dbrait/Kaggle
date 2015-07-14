@@ -13,15 +13,6 @@ weather = read.csv("weather.csv")
 key = read.csv("key.csv")
 samplesub = read.csv("sampleSubmission.csv")
 
-summary(train)
-summary(test)
-edit(train)
-summary(key)
-
-summary(weather)
-edit(weather)
-str(weather)
-
 #impute values in weather
 weather$tmax[weather$tmax=="M"] <- NA
 weather$tmax <- impute(weather$tmax , mean)
@@ -82,15 +73,8 @@ weather$codesum <- as.factor(weather$codesum)
 keytrain <- merge(train, key, by="store_nbr")
 keytest <- merge(test, key, by="store_nbr")
 
-
-summary(keytrain)
-summary(keytest)
-
-
 trainweather <- merge(keytrain, weather, by=c("station_nbr", "date"))
 testweather <- merge(keytest, weather, by=c("station_nbr", "date"))
-
-summary(trainweather)
 
 #random forest
 rmodel <- randomForest(units ~ tmax+tmin+tavg, data=trainweather,ntree=20)
@@ -98,17 +82,12 @@ rmodel <- randomForest(units ~ tmax+tmin+tavg, data=trainweather,ntree=20)
 #boost
 boostmodel <- gbm(units ~ ., data=trainweather, n.trees=100, interaction.depth=20, shrinkage=.1, verbose=TRUE)
 
-
 #predict
 rpredict <- predict(rmodel, testweather, ntree=20)
 
 rpredict <- predict(boostmodel, testweather, n.trees=100)
 
 rsubmit <- data.frame(id = samplesub$id, units = as.integer(rpredict))
-
-summary(rsubmit)
-
-summary(rpredict)
 
 #write csv
 
