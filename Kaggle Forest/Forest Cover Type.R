@@ -2,10 +2,6 @@ train = read.csv("train.csv")
 test = read.csv("test.csv")
 sample.sub = read.csv("sampleSubmission.csv")
 
-summary(train)
-str(train)
-edit(train)
-
 #Remove null variables
 train$Soil_Type7 <- NULL
 train$Soil_Type15 <- NULL
@@ -34,8 +30,10 @@ test$EHDtH <- test$Elevation - test$Horizontal_Distance_To_Hydrology *.2
 train$Highwater <- train$Vertical_Distance_To_Hydrology < 0
 test$Highwater <- test$Vertical_Distance_To_Hydrology < 0
 
-train$Distance_to_Hyrdology <- (train$Horizontal_Distance_To_Hydrology**2+train$Vertical_Distance_To_Hydrology**2)**0.5
-test$Distance_to_Hydrology <- (test$Horizontal_Distance_To_Hydrology**2+test$Vertical_Distance_To_Hydrology**2)**0.5
+train$Distance_to_Hyrdology <- (train$Horizontal_Distance_To_Hydrology**2+
+                                  train$Vertical_Distance_To_Hydrology**2)**0.5
+test$Distance_to_Hydrology <- (test$Horizontal_Distance_To_Hydrology**2+
+                                 test$Vertical_Distance_To_Hydrology**2)**0.5
 
 train$Hydro_Fire_1 <- train$Horizontal_Distance_To_Hydrology+train$Horizontal_Distance_To_Fire_Points
 test$Hydro_Fire_1 <- test$Horizontal_Distance_To_Hydrology+test$Horizontal_Distance_To_Fire_Points
@@ -55,10 +53,8 @@ test$Fire_Road_1 <- abs(test$Horizontal_Distance_To_Fire_Points + test$Horizonta
 train$Fire_Road_2 <- abs(train$Horizontal_Distance_To_Fire_Points - train$Horizontal_Distance_To_Roadways)
 test$Fire_Road_2 <- abs(test$Horizontal_Distance_To_Fire_Points - test$Horizontal_Distance_To_Roadways)
 
-
-
 #Factor Variables
-
+#WRITE SOME CODE TO ITERATE THIS
 train$Wilderness_Area1=as.factor(train$Wilderness_Area1)
 train$Wilderness_Area2=as.factor(train$Wilderness_Area2)
 train$Wilderness_Area3=as.factor(train$Wilderness_Area3)
@@ -103,6 +99,7 @@ train$Soil_Type39=as.factor(train$Soil_Type39)
 train$Soil_Type40=as.factor(train$Soil_Type40)
 train$Cover_Type=as.factor(train$Cover_Type)
 
+#WRITE CODE TO ITERATE THIS
 test$Wilderness_Area1=as.factor(test$Wilderness_Area1)
 test$Wilderness_Area2=as.factor(test$Wilderness_Area2)
 test$Wilderness_Area3=as.factor(test$Wilderness_Area3)
@@ -146,6 +143,7 @@ test$Soil_Type38=as.factor(test$Soil_Type38)
 test$Soil_Type39=as.factor(test$Soil_Type39)
 test$Soil_Type40=as.factor(test$Soil_Type40)
 
+#WRITE CODE TO ITERATE THIS
 train$Cover_Type = as.character(train$Cover_Type)
 train$Cover_Type[train$Cover_Type == "1"] <- "Seg1"
 train$Cover_Type[train$Cover_Type == "2"] <- "Seg2"
@@ -169,7 +167,8 @@ train$Cover_Type = as.factor(train$Cover_Type)
 library(gbm)
 library(caret)
 set.seed(123)
-Boost.Forest <- gbm(Cover_Type ~ ., data=train, n.trees=10, interaction.depth=25, shrinkage=0.1, verbose=TRUE)
+Boost.Forest <- gbm(Cover_Type ~ ., data=train, n.trees=10, 
+                    interaction.depth=25, shrinkage=0.1, verbose=TRUE)
 
 GBMmodel <- train(Cover_Type ~ .,
                   data = train,
