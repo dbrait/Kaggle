@@ -1,11 +1,6 @@
 train = read.csv("train.csv")
 test = read.csv("test.csv")
 
-#Exploratory
-summary(train)
-str(train)
-edit(train)
-
   #Preprocess
 train$Sex = as.factor(train$Sex)
 test$Sex = as.factor(test$Sex)
@@ -24,7 +19,6 @@ test$Embarked = factor(test$Embarked)
 
 train$child = as.factor(train$Age <= 18)
 test$child = as.factor(test$Age <= 18)
-
 
 train$Name <- as.character(train$Name)
 train$Title <- sapply(train$Name, FUN=function(x) {strsplit(x, split="[,.]")[[1]][2]})
@@ -66,28 +60,25 @@ test$FamilyID <- factor(test$FamilyID)
 test$FamilyID <- factor(test$FamilyID, levels=levels(train$FamilyID))
 
 #Fare Parameter
-summary(train$Fare)
 train$rich <- as.factor(train$Fare > 70)
-str(train$rich)
 test$rich <- as.factor(test$Fare > 70)
 
 #Missing Data
 library(plyr)
-
-Agefit <- randomForest(Age ~ Pclass+Sex+SibSp+Parch+Fare+Embarked, data=train[!is.na(train$Age),], ntree=5000)
+Agefit <- randomForest(Age ~ Pclass+Sex+SibSp+Parch+Fare+Embarked, 
+                       data=train[!is.na(train$Age),], ntree=5000)
 train$Age[is.na(train$Age)] <- predict(Agefit, train[is.na(train$Age),], ntree=5000)
 str(train$Age)
 
 test$Fare[is.na(test$Fare)] <- 0
-Agefit.test <- randomForest(Age ~ Pclass+Sex+SibSp+Parch+Fare+Embarked, data=test[!is.na(test$Age),], ntree=5000)
+Agefit.test <- randomForest(Age ~ Pclass+Sex+SibSp+Parch+Fare+Embarked, 
+                            data=test[!is.na(test$Age),], ntree=5000)
 test$Age[is.na(test$Age)] <- predict(Agefit.test, test[is.na(test$Age),], ntree=5000)
 
 #Log Reg
 library(MASS)
 LogReg = glm(Survived~Sex+family+Embarked+Pclass+Age+rich+child, data=train)
-LogReg
 anova(LogReg)
-summary(LogReg)
 Log.pred = predict(LogReg, newdata=test)
 Log.pred <- round(Log.pred)
 
@@ -96,8 +87,8 @@ Log.submit = data.frame(PassengerID = test$PassengerId, Survived=Log.pred)
 #Random Forest
 library(randomForest)
 set.seed(111)
-RForest = randomForest(as.factor(Survived)~Sex+SibSp+Parch+family+Pclass+Age+child+Familysize+Title,data=train,ntree=5000,mtry=3,importance=TRUE)
-RForest
+RForest = randomForest(as.factor(Survived)~Sex+SibSp+Parch+family+Pclass+Age+child+
+                         Familysize+Title,data=train,ntree=5000,mtry=3,importance=TRUE)
 print(RForest)
 importance(RForest)
 pred.rforest = predict(RForest, newdata=test, ntree=5000)
@@ -106,20 +97,18 @@ rforest.submit = data.frame(PassengerID = test$PassengerId, Survived=pred.rfores
 
 library(party)
 set.seed(123)
-tit.cforest <- cforest(as.factor(Survived)~Sex+SibSp+Parch+Fare+Embarked+Pclass+Age+child+Title+Familysize+FamilyID,data=train,controls=cforest_unbiased(ntree=5000, mtry=3))
-tit.cforest
+tit.cforest <- cforest(as.factor(Survived)~Sex+SibSp+Parch+Fare+Embarked+Pclass+Age+
+                         child+Title+Familysize+FamilyID,
+                       data=train,controls=cforest_unbiased(ntree=5000, mtry=3))
 cforest.pred <- predict(tit.cforest, test, OOB=TRUE, type="response")
-
-
 cforest.submit= data.frame(PassengerID = test$PassengerId, Survived=cforest.pred)
 
 #Boosting
 library(gbm)
-Boost = gbm(as.factor(Survived) ~ Sex+family+SibSp+Parch+Embarked+Pclass+Age+rich+child+Familysize+Title,data=train,n.trees=5000,shrinkage=0.01,interaction.depth=5,distribution="gaussian")
-Boost
-summary(Boost)
+Boost = gbm(as.factor(Survived) ~ Sex+family+SibSp+Parch+Embarked+Pclass+Age+rich+
+              child+Familysize+Title,data=train,n.trees=5000,shrinkage=0.01,
+            interaction.depth=5,distribution="gaussian")
 pred.boost = predict(Boost, newdata=test, n.trees=5000)
-
 boost.submit = data.frame(PassengerID = test$PassengerId, Survived=pred.boost)
 
 #Decision Tree
@@ -132,12 +121,8 @@ pred.tree = predict(Dectree, test, type="class")
 
 tree.submit <- data.frame(PassengerID = test$PassengerId, Survived=pred.tree)
 
-
 #NEED CROSSVALIDATION AND MODEL EVALUATION
 trainsub <- combi[1:891,]
-
-
-#Ensemble Learning
 
 #Write files
 write.csv(boost.submit, "Pred.Boost.csv", row.names=FALSE)
